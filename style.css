@@ -1,0 +1,16 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Ensure the page is tall enough to scroll */
+.scroll-container {
+  height: 3000px; /* Increase this value if needed */
+}
+
+canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+}
