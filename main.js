@@ -36,6 +36,9 @@ plane.position.y = 0.9; // Position it slightly above the origin
 // Create a physics body for the plane
 const planeShape = new CANNON.Plane();
 const planeBody = new CANNON.Body({
+  userData: {
+    id: 'plane'
+  },
   mass: 0, // Static body (mass = 0)
   position: new CANNON.Vec3(0, 0.9, 0),
   material: contactMaterial
@@ -145,6 +148,57 @@ async function generateBlock(){
   }
 } 
 generateBlock()
+// Function to check if block is completely outside tower bounds
+function isBlockOutsideTower(position) {
+  // Calculate tower dimensions based on block generation loop
+  // 3 blocks wide/deep, each block is 0.03 scale
+  const towerWidth = 0.1;  // 3 blocks * 0.03 scale
+  const towerDepth = 0.1;  // 3 blocks * 0.03 scale
+  
+  // Block dimensions at 0.03 scale
+  const blockSize = 0.03;
+
+  // Calculate tower boundaries (centered at origin)
+  const towerMinX = -towerWidth;
+  const towerMaxX = towerWidth;
+  const towerMinZ = -towerDepth;
+  const towerMaxZ = towerDepth;
+
+  // Calculate block corner positions from its center position (ignoring height)
+  const blockCorners = [
+    {x: position.x + blockSize/2, z: position.z + blockSize/2}, // front right
+    {x: position.x + blockSize/2, z: position.z - blockSize/2}, // back right
+    {x: position.x - blockSize/2, z: position.z + blockSize/2}, // front left
+    {x: position.x - blockSize/2, z: position.z - blockSize/2}  // back left
+  ];
+
+  // Check if ALL corners are outside ANY SINGLE boundary on X or Z axis
+  const allCornersOutsideRight = blockCorners.every(corner => corner.x > towerMaxX);
+  const allCornersOutsideLeft = blockCorners.every(corner => corner.x < towerMinX);
+  const allCornersOutsideFront = blockCorners.every(corner => corner.z > towerMaxZ);
+  const allCornersOutsideBack = blockCorners.every(corner => corner.z < towerMinZ);
+
+  // Block is only considered outside if ALL corners are beyond ANY single boundary
+  const isCompletelyOutside = allCornersOutsideRight || allCornersOutsideLeft || 
+                             allCornersOutsideFront || allCornersOutsideBack;
+
+  if (isCompletelyOutside) {
+    console.log("Block is completely outside tower bounds");
+    return true;
+  }
+  console.log("Block is at least partially inside tower bounds");
+  return false;
+}
+
+
+
+
+
+
+
+
+
+
 
 
 // Mouse interaction setup
@@ -176,28 +230,29 @@ function onMouseClick(event) {
     if (nums && nums.length > 0) {
       const blockIndex = parseInt(nums[0], 10);
       const body = blocks[blockIndex];
-
+      
       // Make the block static by turning off physics
       // body.mass = 0;
       body.updateMassProperties();
       body.velocity.set(0, 0, 0);
       body.angularVelocity.set(0, 0, 0);
 
-      
-      console.log(blockIndex);
     }
   } else {
     clickedObject = null;
   }
 }
 
+
+
 function onMouseMove(event) {
   if (clickedObject) {
-  
+   
     const nums = clickedObject.name.match(/\d+/g);
     const blockIndex = parseInt(nums[0], 10);
     const body = blocks[blockIndex];
-
+    
+    
     // Calculate the distance moved in screen space
     const distanceMoved = [
       originalPosition[0] - event.clientX,
@@ -234,7 +289,12 @@ function onMouseMove(event) {
     body.position.z += worldMovement.z;
 
     // Sync the Three.js object's position with the Cannon.js body
-    clickedObject.position.copy(body.position);
+    if (clickedObject && clickedObject.position) {
+      // Convert CANNON.Vec3 to THREE.Vector3 before copying
+      const cannonPosition = body.position;
+      const threePosition = new THREE.Vector3(cannonPosition.x, cannonPosition.y, cannonPosition.z);
+      clickedObject.position.copy(threePosition);
+    }
 
     
   }
