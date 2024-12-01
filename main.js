@@ -197,11 +197,6 @@ function onMouseMove(event) {
     const nums = clickedObject.name.match(/\d+/g);
     const blockIndex = parseInt(nums[0], 10);
     const body = blocks[blockIndex];
-    let numcollisions = 0
-    body.addEventListener('collide', (event) => {
-      numcollisions++
-      console.log(numcollisions)
-    });
 
     // Calculate the distance moved in screen space
     const distanceMoved = [
@@ -248,25 +243,62 @@ function onMouseMove(event) {
 
 
 
-// Add scroll functionality to orbit the camera
 function onScroll() {
-  const maxScroll = 1000; // Define a maximum scroll value
-  const scrollAmount = Math.min(window.scrollY, maxScroll); // Clamp scroll amount to maxScroll
+  const maxScroll = document.body.scrollHeight - window.innerHeight;
+  const scrollAmount = window.scrollY;
 
-  // Calculate a normalized radius relative to the window height
-  const screenFactor = Math.min(window.innerWidth, window.innerHeight); // Choose the smaller dimension
-  const normalizedRadius = 0.0006; // Example proportion, tweak as needed
-  const radius = normalizedRadius * screenFactor; // Calculate the radius
+  // Calculate base radius using aspect ratio instead of screen dimensions
+  const aspectRatio = window.innerWidth / window.innerHeight;
+  const baseRadius = 0.9; // Reduced from 8 to 4 to zoom in closer
+  const radius = baseRadius * (aspectRatio / (16/9));
 
-  // Map scroll amount to angle, clamping to a maximum of 90 degrees (π/2 radians)
-  const maxAngle = Math.PI / 2; // 90 degrees in radians
-  const angle = (scrollAmount / maxScroll) * maxAngle; // Map scroll to angle
+  // Map scroll amount to angle, clamping to a maximum of 90 degrees
+  const maxAngle = Math.PI / 2;
+  const angle = (scrollAmount / maxScroll) * maxAngle;
 
   // Update camera position
   camera.position.x = radius * Math.cos(angle);
   camera.position.z = radius * Math.sin(angle);
   camera.lookAt(new THREE.Vector3(0, 1, 0));
 }
+
+let autoScrollInterval;
+let scrollingDown = true;
+let isAutoScrolling = false; // Flag to track if auto-scrolling is active
+
+function autoScroll() {
+  const maxScroll = document.body.scrollHeight - window.innerHeight; // Use the correct max scroll value
+  const scrollStep = 5; // Adjust the scroll speed
+  isAutoScrolling = true; // Set flag when auto-scrolling starts
+
+  autoScrollInterval = setInterval(() => {
+    if (scrollingDown) {
+      window.scrollBy(0, scrollStep);
+      if (window.scrollY >= maxScroll) {
+        scrollingDown = false;
+      }
+    } else {
+      window.scrollBy(0, -scrollStep);
+      if (window.scrollY <= 0) {
+        scrollingDown = true;
+      }
+    }
+  }, 20); // Adjust the interval for smoother scrolling
+}
+
+window.addEventListener('load', autoScroll);
+
+window.addEventListener('click', ()=>{
+  if(isAutoScrolling){
+    isAutoScrolling = false
+    clearInterval(autoScrollInterval)
+  }
+});
+
+// Update initial camera position to match the new radius calculation
+const initialAspectRatio = window.innerWidth / window.innerHeight;
+const initialRadius = 0. * (initialAspectRatio / (16/9)); // Also reduced from 8 to 4
+camera.position.set(initialRadius, 1, 6);
 
 // Set the height of the body to match maxScroll
 document.body.style.height = `${1000 + window.innerHeight}px`; // Add window height to ensure full scroll
@@ -310,4 +342,6 @@ function animate() {
 }
 
 
+
 animate(); // Start the animation loop
+
