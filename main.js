@@ -60,7 +60,7 @@ function addPhysicsToModel(model, isStatic = false, id) {
   // Use the size to create a CANNON.Box shape
   const halfExtents = new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2);
   const shape = new CANNON.Box(halfExtents);
-
+    
   // Create the corresponding physics body
   const body = new CANNON.Body({
     mass: mass,
@@ -71,7 +71,7 @@ function addPhysicsToModel(model, isStatic = false, id) {
     ),
     material: contactMaterial
   });
-
+  
   // Apply rotation for alternate layers
   if (!rotate) {
     body.quaternion.setFromEuler(0, Math.PI / 2, 0, "XYZ");
@@ -135,7 +135,7 @@ async function generateBlock(){
         scene.add(model);
         models.push(model);
         addPhysicsToModel(model, false, i);
-  
+        
         resolve()
       }, undefined, (error) => {
         reject(new Error("failed"))
@@ -157,9 +157,10 @@ let originalPosition = [];
 
 // Handle mouse click events
 function onMouseClick(event) {
+  
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  console.log(intersects)
+
   originalPosition = [event.clientX, event.clientY];
 
   raycaster.setFromCamera(mouse, camera);
@@ -192,10 +193,16 @@ function onMouseClick(event) {
 
 function onMouseMove(event) {
   if (clickedObject) {
+  
     const nums = clickedObject.name.match(/\d+/g);
     const blockIndex = parseInt(nums[0], 10);
     const body = blocks[blockIndex];
-    console.log(body)
+    let numcollisions = 0
+    body.addEventListener('collide', (event) => {
+      numcollisions++
+      console.log(numcollisions)
+    });
+
     // Calculate the distance moved in screen space
     const distanceMoved = [
       originalPosition[0] - event.clientX,
@@ -233,6 +240,8 @@ function onMouseMove(event) {
 
     // Sync the Three.js object's position with the Cannon.js body
     clickedObject.position.copy(body.position);
+
+    
   }
 }
 
@@ -241,14 +250,30 @@ function onMouseMove(event) {
 
 // Add scroll functionality to orbit the camera
 function onScroll() {
-  const scrollAmount = window.scrollY;
-  const angle = scrollAmount * 0.0009;
-  const radius = 0.8;
+  const maxScroll = 1000; // Define a maximum scroll value
+  const scrollAmount = Math.min(window.scrollY, maxScroll); // Clamp scroll amount to maxScroll
 
+  // Calculate a normalized radius relative to the window height
+  const screenFactor = Math.min(window.innerWidth, window.innerHeight); // Choose the smaller dimension
+  const normalizedRadius = 0.0006; // Example proportion, tweak as needed
+  const radius = normalizedRadius * screenFactor; // Calculate the radius
+
+  // Map scroll amount to angle, clamping to a maximum of 90 degrees (π/2 radians)
+  const maxAngle = Math.PI / 2; // 90 degrees in radians
+  const angle = (scrollAmount / maxScroll) * maxAngle; // Map scroll to angle
+
+  // Update camera position
   camera.position.x = radius * Math.cos(angle);
   camera.position.z = radius * Math.sin(angle);
   camera.lookAt(new THREE.Vector3(0, 1, 0));
 }
+
+// Set the height of the body to match maxScroll
+document.body.style.height = `${1000 + window.innerHeight}px`; // Add window height to ensure full scroll
+
+// Add event listener for scroll
+window.addEventListener('scroll', onScroll);
+
 
 // Add event listeners for interactivity
 window.addEventListener('mousemove', onMouseMove);
