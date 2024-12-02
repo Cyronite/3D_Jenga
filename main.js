@@ -1,4 +1,5 @@
 // Importing necessary libraries
+import * as Modules from './modules.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import CANNON from 'cannon';
@@ -50,49 +51,6 @@ world.addBody(planeBody);
 let blocks = []; // Array to store physics bodies for the blocks
 
 // Function to add physics to the model and position it in the scene
-function addPhysicsToModel(model, isStatic = false, id) {
-  const mass = isStatic ? 0 : 1; // Static blocks have zero mass
-  const layer = Math.floor(id / 3); // Determine which layer the block belongs to
-  const rotate = layer % 2 === 0; // Alternate rotation per layer
-
-  // Compute the bounding box of the model to determine its size
-  const boundingBox = new THREE.Box3().setFromObject(model);
-  const size = new THREE.Vector3();
-  boundingBox.getSize(size);
-
-  // Use the size to create a CANNON.Box shape
-  const halfExtents = new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2);
-  const shape = new CANNON.Box(halfExtents);
-    
-  // Create the corresponding physics body
-  const body = new CANNON.Body({
-    mass: mass,
-    position: new CANNON.Vec3(
-      rotate ? -0.06 + ((id % 3) * size.x) : 0, // Position blocks horizontally or vertically
-      0.9 + size.y / 2 + (layer * size.y), // Stack blocks layer by layer
-      rotate ? 0 : -0.06 + ((id % 3) * size.x)
-    ),
-    material: contactMaterial
-  });
-  
-  // Apply rotation for alternate layers
-  if (!rotate) {
-    body.quaternion.setFromEuler(0, Math.PI / 2, 0, "XYZ");
-  }
-
-  // Apply damping for realistic block movement
-  body.linearDamping = 0.05;
-  body.angularDamping = 0.05;
-
-  body.addShape(shape);
-  world.addBody(body);
-
-  // Store physics body and its ID in the model's user data
-  model.userData.physicsBody = body;
-  model.userData.id = id;
-  body.userData = { id };
-  blocks.push(body);
-}
 
 // Set up the camera
 camera.position.set(5, 1, 6);
@@ -119,6 +77,51 @@ loader.load('/assets/groundplane.glb', (gltf) => {
   console.error('An error occurred loading the model:', error);
 });
 
+export function addPhysicsToModel(model, isStatic = false, id) {
+  const mass = isStatic ? 0 : 1; 
+  const layer = Math.floor(id / 3); 
+  const rotate = layer % 2 === 0; 
+
+  // Compute the bounding box of the model to determine its size
+  const boundingBox = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  boundingBox.getSize(size);
+
+  // Use the size to create a CANNON.Box shape
+  const halfExtents = new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2);
+  const shape = new CANNON.Box(halfExtents);
+    
+  // Create the corresponding physics body
+  const body = new CANNON.Body({
+    mass: mass,
+    // position the body
+    position: new CANNON.Vec3(
+      rotate ? -0.06 + ((id % 3) * size.x) : 0, 
+      0.9 + size.y / 2 + (layer * size.y), 
+      rotate ? 0 : -0.06 + ((id % 3) * size.x)
+    ),
+    material: contactMaterial
+  });
+  
+  // Apply rotation for alternate layers
+  if (!rotate) {
+    body.quaternion.setFromEuler(0, Math.PI / 2, 0, "XYZ");
+  }
+
+  // Apply damping for realistic block movement
+  body.linearDamping = 0.05;
+  body.angularDamping = 0.05;
+
+  // adding the shape to the body
+  body.addShape(shape);
+  world.addBody(body);
+
+  // Store physics body and its ID in the model's user data
+  model.userData.physicsBody = body;
+  model.userData.id = id;
+  body.userData = { id };
+  blocks.push(body);
+}
 // Load the blocks and add physics to them
 async function generateBlock(){
   for (let i = 0; i < 10 * 3; i++) {
@@ -183,17 +186,10 @@ function isBlockOutsideTower(position) {
                              allCornersOutsideFront || allCornersOutsideBack;
 
   if (isCompletelyOutside) {
-    console.log("Block is completely outside tower bounds");
     return true;
   }
-  console.log("Block is at least partially inside tower bounds");
   return false;
 }
-
-
-
-
-
 
 
 
@@ -206,43 +202,79 @@ let clickedObject = null;
 let intersects = [];
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
-const initMouse = new THREE.Vector2();
 let originalPosition = [];
+let currentBlock = null;
+
+let currentPlayer = 1; // Track current player (1 or 2)
+let canSwitchPlayer = false;
 
 // Handle mouse click events
 function onMouseClick(event) {
-  
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
   originalPosition = [event.clientX, event.clientY];
 
   raycaster.setFromCamera(mouse, camera);
   intersects = raycaster.intersectObjects(models);
-  if (clickedObject){
-    clickedObject = null;
-  }
-  else if (intersects.length > 0 && intersects[0].object.name.includes("block")) {
-    clickedObject = intersects[0].object;
-    
-    // Get block index from its name
-    const nums = clickedObject.name.match(/\d+/g);
-    if (nums && nums.length > 0) {
-      const blockIndex = parseInt(nums[0], 10);
-      const body = blocks[blockIndex];
-      
-      // Make the block static by turning off physics
-      // body.mass = 0;
-      body.updateMassProperties();
-      body.velocity.set(0, 0, 0);
-      body.angularVelocity.set(0, 0, 0);
 
+  // Case 1: Unselecting currently clicked object
+  if (clickedObject) {
+    // Only switch players if the block was moved outside tower
+    if (isBlockOutsideTower(clickedObject.position) && canSwitchPlayer) {
+      switchPlayer();
+      canSwitchPlayer = false; // Reset flag
     }
-  } else {
     clickedObject = null;
+    return;
+  }
+
+  // Case 2: Trying to select a new object
+  if (intersects.length > 0 && intersects[0].object.name.includes("block")) {
+    const newBlock = intersects[0].object;
+    
+    if (currentBlock === null) {
+      currentBlock = newBlock;
+      clickedObject = newBlock;
+      canSwitchPlayer = true; // Enable player switching for this move
+    }
+    else if (currentBlock === newBlock || isBlockOutsideTower(currentBlock.position)) {
+      if (isBlockOutsideTower(currentBlock.position)) {
+        currentBlock = newBlock;
+        canSwitchPlayer = true; // Enable player switching for new block
+      }
+      clickedObject = newBlock;
+    }
+
+    if (clickedObject) {
+      const nums = clickedObject.name.match(/\d+/g);
+      if (nums && nums.length > 0) {
+        const blockIndex = parseInt(nums[0], 10);
+        const body = blocks[blockIndex];
+        
+        body.updateMassProperties();
+        body.velocity.set(0, 0, 0);
+        body.angularVelocity.set(0, 0, 0);
+      }
+    }
   }
 }
 
+// Add new function to switch players
+function switchPlayer() {
+  currentPlayer = currentPlayer === 1 ? 2 : 1;
+  console.log(`Now it's Player ${currentPlayer}'s turn`);
+  
+  // Optional: Update UI to show current player
+  updatePlayerDisplay();
+}
+
+// Add function to update player display (you'll need to add corresponding HTML elements)
+function updatePlayerDisplay() {
+  const playerDisplay = document.getElementById('currentPlayer');
+  if (playerDisplay) {
+    playerDisplay.textContent = `Player ${currentPlayer}'s Turn`;
+  }
+}
 
 
 function onMouseMove(event) {
