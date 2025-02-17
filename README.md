@@ -1,5 +1,4 @@
 # 3D Jenga
-![3D Jenga Demo](https://img.youtube.com/vi/Bz55YZSG9Zo/0.jpg)
 [![Watch the video](https://img.youtube.com/vi/Bz55YZSG9Zo/0.jpg)](https://www.youtube.com/watch?v=Bz55YZSG9Zo)
 ## Description
 3D Jenga is a web-based simulation of the classic Jenga game, where players take turns removing blocks from a 3D tower and stacking them on top without causing the tower to collapse. The game features realistic physics for block movement, player turns, and game-over conditions when the tower falls.
