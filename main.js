@@ -190,18 +190,7 @@ function isBlockOutsideTower(position) {
   }
   return false;
 }
-function areBlocksAtRest() {
-  const velocityThreshold = 0.1; // Try lowering this threshold
-  for (const body of blocks) {
-    // Log velocities to debug
-     
-    // Check if either linear or angular velocity exceeds the threshold
-    if (body.velocity.length() > velocityThreshold || body.angularVelocity.length() > velocityThreshold) {
-      return false; // At least one block is still moving
-    }
-  }
-  return true; // All blocks are at rest
-}
+
 
 
 // Mouse interaction setup
@@ -212,6 +201,22 @@ const mouse = new THREE.Vector2();
 let originalPosition = [];
 let currentBlock = null;
 let selectedBlocks = [];
+
+function areBlocksAtRest() {
+  const velocityThreshold = 0.1; // Try lowering this threshold
+  for (const body of blocks) {
+    // Log velocities to debug
+     
+  //  console.log(body)
+
+   
+   if(selectedBlocks.includes("block_"+body.id))
+    if (body.velocity.length() > velocityThreshold || body.angularVelocity.length() > velocityThreshold) {
+      return false; // At least one block is still moving
+    }
+  }
+  return true; // All blocks are at rest
+}
 
 let currentPlayer = 1; // Track current player (1 or 2)
 let canSwitchPlayer = false;
@@ -455,6 +460,7 @@ window.addEventListener('scroll', onScroll);
 
 document.getElementById('start-button').addEventListener('click', () => {
   setTimeout(() => {
+    document.getElementById('ui').style.display = 'block'
     document.getElementById('overlay').style.display = 'none';
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('click', onMouseClick);
@@ -489,6 +495,18 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+function handletie() {
+  // Log the player who lost
+  console.log("tie");
+
+  // Display the "You Lose" message
+  document.getElementById('game-over').style.display = 'block'; // Show the game-over screen
+  document.getElementById('game-over-h1').innerText ="Tie!"
+  // Optionally, hide other UI elements like the start button, player turn, etc.
+  document.getElementById('overlay').style.display = 'none'; // Hide the overlay
+  document.getElementById('ui').style.display = 'none'; // Hide the player turn UI
+}
+
 let running = true
 function endGame() {
   if (!running) return;
@@ -501,6 +519,9 @@ function endGame() {
 
 
 function checkGameOver() {
+  if((blocks.length == selectedBlocks.length)&&(blocks.length !==0 )){
+    handletie();
+  }
   if (!running) return;
   if (!clickedObject) return; // Exit if clickedObject is null or undefined
 
