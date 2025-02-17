@@ -209,8 +209,6 @@ function areBlocksAtRest() {
      
   //  console.log(body)
 
-   
-   if(selectedBlocks.includes("block_"+body.id))
     if (body.velocity.length() > velocityThreshold || body.angularVelocity.length() > velocityThreshold) {
       return false; // At least one block is still moving
     }
@@ -301,17 +299,16 @@ function onMouseClick(event) {
 // Add new function to switch players
 function switchPlayer() {
   const checkInterval = 1; // Check every 100ms
-  
   const intervalId = setInterval(() => {
     if (areBlocksAtRest()) { // Check if all blocks are at rest
-        clearInterval(intervalId); // Stop checking once blocks are at rest
+      clearInterval(intervalId); // Stop checking once blocks are at rest
       currentPlayer = currentPlayer === 1 ? 2 : 1; // Switch player
       updatePlayerDisplay(); // Update the UI to reflect the current player
     }
           
 
         // Iterate through all blocks
-  for (let body of blocks) {
+    for (let body of blocks) {
     const isBlockOutside = isBlockOutsideTower(body.position);
 
     // Check if the block is outside the bounds and not part of the selected blocks
@@ -332,8 +329,6 @@ function switchPlayer() {
 function updatePlayerDisplay() {
   if (areBlocksAtRest()) {
     document.getElementById("player-turn").textContent = `Player ${currentPlayer}'s Turn`;
-  } else {
-    document.getElementById("player-turn").textContent = "Waiting for blocks to stabilize...";
   }
 }
 
