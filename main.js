@@ -192,11 +192,6 @@ function isBlockOutsideTower(position) {
 }
 
 
-
-
-
-
-
 // Mouse interaction setup
 let clickedObject = null;
 let intersects = [];
@@ -218,15 +213,35 @@ function onMouseClick(event) {
   intersects = raycaster.intersectObjects(models);
 
   // Case 1: Unselecting currently clicked object
-  if (clickedObject) {
-    // Only switch players if the block was moved outside tower
-    if (isBlockOutsideTower(clickedObject.position) && canSwitchPlayer) {
-      switchPlayer();
-      canSwitchPlayer = false; // Reset flag
+if (clickedObject) {
+  // Only switch players if the block was moved outside tower
+  if (isBlockOutsideTower(clickedObject.position) && canSwitchPlayer) {
+    // Make the currently selected block invisible
+    if (clickedObject) {
+      const nums = clickedObject.name.match(/\d+/g);
+      if (nums && nums.length > 0) {
+        const blockIndex = parseInt(nums[0], 10);
+        const body = blocks[blockIndex];
+
+        // Make the block invisible in Three.js
+        clickedObject.visible = false;
+
+        // Disable the physics body in Cannon.js
+        body.mass = 0; // Set mass to 0 to make it static
+        body.updateMassProperties(); // Update the body's properties
+        body.velocity.set(0, 0, 0); // Reset velocity
+        body.angularVelocity.set(0, 0, 0); // Reset angular velocity
+        body.position.set(-100, -100, -100); // Move it far away to avoid collisions
+      }
     }
-    clickedObject = null;
-    return;
+
+    // Switch players after making the block invisible
+    switchPlayer();
+    canSwitchPlayer = false; // Reset flag
   }
+  clickedObject = null;
+  return;
+}
 
   // Case 2: Trying to select a new object
   if (intersects.length > 0 && intersects[0].object.name.includes("block")) {
@@ -331,8 +346,6 @@ function onMouseMove(event) {
     
   }
 }
-
-
 
 
 function onScroll() {
