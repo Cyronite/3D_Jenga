@@ -190,6 +190,18 @@ function isBlockOutsideTower(position) {
   }
   return false;
 }
+function areBlocksAtRest() {
+  const velocityThreshold = 0.1; // Try lowering this threshold
+  for (const body of blocks) {
+    // Log velocities to debug
+     
+    // Check if either linear or angular velocity exceeds the threshold
+    if (body.velocity.length() > velocityThreshold || body.angularVelocity.length() > velocityThreshold) {
+      return false; // At least one block is still moving
+    }
+  }
+  return true; // All blocks are at rest
+}
 
 
 // Mouse interaction setup
@@ -199,6 +211,7 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let originalPosition = [];
 let currentBlock = null;
+let selectedBlocks = [];
 
 let currentPlayer = 1; // Track current player (1 or 2)
 let canSwitchPlayer = false;
@@ -213,59 +226,65 @@ function onMouseClick(event) {
   intersects = raycaster.intersectObjects(models);
 
   // Case 1: Unselecting currently clicked object
-if (clickedObject) {
-  // Only switch players if the block was moved outside tower
-  if (isBlockOutsideTower(clickedObject.position) && canSwitchPlayer) {
-    // Make the currently selected block invisible
-    if (clickedObject) {
-      const nums = clickedObject.name.match(/\d+/g);
-      if (nums && nums.length > 0) {
-        const blockIndex = parseInt(nums[0], 10);
-        const body = blocks[blockIndex];
+  if (clickedObject) {
+    // Only switch players if the block was moved outside the tower
+    if (isBlockOutsideTower(clickedObject.position) && canSwitchPlayer) {
+      // Make the currently selected block invisible
+      if (clickedObject) {
+        const nums = clickedObject.name.match(/\d+/g);
+        if (nums && nums.length > 0) {
+          const blockIndex = parseInt(nums[0], 10);
+          const body = blocks[blockIndex];
 
-        // Make the block invisible in Three.js
-        clickedObject.visible = false;
+          // Make the block invisible in Three.js
+          clickedObject.visible = false;
 
-        // Disable the physics body in Cannon.js
-        body.mass = 0; // Set mass to 0 to make it static
-        body.updateMassProperties(); // Update the body's properties
-        body.velocity.set(0, 0, 0); // Reset velocity
-        body.angularVelocity.set(0, 0, 0); // Reset angular velocity
-        body.position.set(-100, -100, -100); // Move it far away to avoid collisions
+          // Disable the physics body in Cannon.js
+          body.mass = 0; // Set mass to 0 to make it static
+          body.updateMassProperties(); // Update the body's properties
+          body.velocity.set(0, 0, 0); // Reset velocity
+          body.angularVelocity.set(0, 0, 0); // Reset angular velocity
+          body.position.set(-100, -100, -100); // Move it far away to avoid collisions
+        }
       }
-    }
 
-    // Switch players after making the block invisible
-    switchPlayer();
-    canSwitchPlayer = false; // Reset flag
+      // Switch players after making the block invisible
+      switchPlayer(); // This will now wait for blocks to stabilize
+      canSwitchPlayer = false; // Reset flag
+    }
+    clickedObject = null;
+    return;
   }
-  clickedObject = null;
-  return;
-}
 
   // Case 2: Trying to select a new object
   if (intersects.length > 0 && intersects[0].object.name.includes("block")) {
     const newBlock = intersects[0].object;
-    
+
     if (currentBlock === null) {
       currentBlock = newBlock;
       clickedObject = newBlock;
       canSwitchPlayer = true; // Enable player switching for this move
-    }
-    else if (currentBlock === newBlock || isBlockOutsideTower(currentBlock.position)) {
+    } else if (currentBlock === newBlock || isBlockOutsideTower(currentBlock.position)) {
       if (isBlockOutsideTower(currentBlock.position)) {
+       
         currentBlock = newBlock;
         canSwitchPlayer = true; // Enable player switching for new block
       }
       clickedObject = newBlock;
     }
 
+    // Add the selected block to the list
+   
+
     if (clickedObject) {
+      if (!selectedBlocks.includes(newBlock)) {
+        selectedBlocks.push(newBlock);
+      }
       const nums = clickedObject.name.match(/\d+/g);
       if (nums && nums.length > 0) {
         const blockIndex = parseInt(nums[0], 10);
         const body = blocks[blockIndex];
-        
+
         body.updateMassProperties();
         body.velocity.set(0, 0, 0);
         body.angularVelocity.set(0, 0, 0);
@@ -276,18 +295,40 @@ if (clickedObject) {
 
 // Add new function to switch players
 function switchPlayer() {
-  currentPlayer = currentPlayer === 1 ? 2 : 1;
-  console.log(`Now it's Player ${currentPlayer}'s turn`);
+  const checkInterval = 1; // Check every 100ms
   
-  // Optional: Update UI to show current player
-  updatePlayerDisplay();
+  const intervalId = setInterval(() => {
+    if (areBlocksAtRest()) { // Check if all blocks are at rest
+        clearInterval(intervalId); // Stop checking once blocks are at rest
+      currentPlayer = currentPlayer === 1 ? 2 : 1; // Switch player
+      updatePlayerDisplay(); // Update the UI to reflect the current player
+    }
+          
+
+        // Iterate through all blocks
+  for (let body of blocks) {
+    const isBlockOutside = isBlockOutsideTower(body.position);
+
+    // Check if the block is outside the bounds and not part of the selected blocks
+    const blockName = `block_${body.id - 1}`;
+    const isBlockSelected = selectedBlocks.some(block => block.name && block.name.includes(blockName));
+
+    // If the block is outside and not selected, trigger the game over function
+    if (isBlockOutside && !isBlockSelected) {
+      endGame(); // Trigger the game over function
+      return; // Exit the function once game over is triggered
+    }
+  }
+  }, checkInterval); // Check every 100ms
 }
+
 
 // Add function to update player display (you'll need to add corresponding HTML elements)
 function updatePlayerDisplay() {
-  const playerDisplay = document.getElementById('currentPlayer');
-  if (playerDisplay) {
-    playerDisplay.textContent = `Player ${currentPlayer}'s Turn`;
+  if (areBlocksAtRest()) {
+    document.getElementById("player-turn").textContent = `Player ${currentPlayer}'s Turn`;
+  } else {
+    document.getElementById("player-turn").textContent = "Waiting for blocks to stabilize...";
   }
 }
 
@@ -350,6 +391,7 @@ function onMouseMove(event) {
 
 function onScroll() {
   const maxScroll = document.body.scrollHeight - window.innerHeight;
+  
   const scrollAmount = window.scrollY;
 
   // Calculate base radius using aspect ratio instead of screen dimensions
@@ -406,7 +448,7 @@ const initialRadius = 0. * (initialAspectRatio / (16/9)); // Also reduced from 8
 camera.position.set(initialRadius, 1, 6);
 
 // Set the height of the body to match maxScroll
-document.body.style.height = `${1000 + window.innerHeight}px`; // Add window height to ensure full scroll
+document.body.style.height = `${3000 + window.innerHeight}px`; // Add window height to ensure full scroll
 
 // Add event listener for scroll
 window.addEventListener('scroll', onScroll);
@@ -423,6 +465,41 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+let running = true
+function endGame() {
+  if (!running) return;
+  running = false;
+  // Optional: Disable user interactions
+  window.removeEventListener('mousemove', onMouseMove);
+  window.removeEventListener('click', onMouseClick);
+  console.log("player " + currentPlayer +" loses")
+}
+function checkGameOver() {
+  if (!running) return;
+  if (!clickedObject) return; // Exit if clickedObject is null or undefined
+
+  const clickedBlockIndex = parseInt(clickedObject.name.match(/\d+/)?.[0], 10);
+
+  for (let body of blocks) {
+    const isClickedBlock = clickedBlockIndex === body.id - 1;
+    const isBlockOutside = isBlockOutsideTower(body.position);
+
+    // Skip the clicked block since it's still being interacted with
+    if (isClickedBlock) continue;
+
+    // Check if the block is outside the bounds and not part of the selected blocks
+    if (isBlockOutside) {
+      const blockName = `block_${body.id - 1}`;
+      const isBlockSelected = selectedBlocks.some(block => block.name && block.name.includes(blockName));
+
+      if (!isBlockSelected) {
+        console.log("A block has fallen out of bounds.");
+        endGame(); // Trigger the game over function
+        return; // Exit the function once game over is triggered
+      }
+    }
+  }
+}
 
 // Animation loop
 function animate() {
@@ -442,10 +519,11 @@ function animate() {
     }
   });
 
+  checkGameOver(); // Check for game-over conditions
+
   // Render the scene
   renderer.render(scene, camera);
 }
-
 
 
 animate(); // Start the animation loop
