@@ -453,11 +453,35 @@ document.body.style.height = `${3000 + window.innerHeight}px`; // Add window hei
 // Add event listener for scroll
 window.addEventListener('scroll', onScroll);
 
+document.getElementById('start-button').addEventListener('click', () => {
+  setTimeout(() => {
+    document.getElementById('overlay').style.display = 'none';
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('click', onMouseClick);
+    window.addEventListener('scroll', onScroll);
+      
+  }, 1); // Delay is in milliseconds
+ 
+});
 
-// Add event listeners for interactivity
-window.addEventListener('mousemove', onMouseMove);
-window.addEventListener('click', onMouseClick);
-window.addEventListener('scroll', onScroll);
+// Assuming currentPlayer is a variable that stores the current player's number (1 or 2)
+function handlePlayerLoss(currentPlayer) {
+  // Log the player who lost
+  console.log("Player " + currentPlayer + " loses");
+
+  // Display the "You Lose" message
+  document.getElementById('game-over').style.display = 'block'; // Show the game-over screen
+  document.getElementById('game-over-h1').innerText ="player "+currentPlayer+" lost"
+  // Optionally, hide other UI elements like the start button, player turn, etc.
+  document.getElementById('overlay').style.display = 'none'; // Hide the overlay
+  document.getElementById('ui').style.display = 'none'; // Hide the player turn UI
+}
+
+// Restart the game when the "Restart Game" button is clicked
+document.getElementById('restart-button').addEventListener('click', function() {
+  // Reload the page to restart the game
+  window.location.reload();
+});
 
 // Resize handler
 window.addEventListener('resize', () => {
@@ -472,8 +496,10 @@ function endGame() {
   // Optional: Disable user interactions
   window.removeEventListener('mousemove', onMouseMove);
   window.removeEventListener('click', onMouseClick);
-  console.log("player " + currentPlayer +" loses")
+  handlePlayerLoss(currentPlayer);
 }
+
+
 function checkGameOver() {
   if (!running) return;
   if (!clickedObject) return; // Exit if clickedObject is null or undefined
